@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0,
+                 viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#07000f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <base href="/LoveCQL/">
+  <title>回忆 · 地球Online</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <style>
+    /* 照片占位渐变（未放图片时的备用背景）*/
+    .slide-item:nth-child(1) { background: linear-gradient(135deg,#1a0030,#3d0050,#1a0030); }
+    .slide-item:nth-child(2) { background: linear-gradient(135deg,#07000f,#2a0040,#07000f); }
+    .slide-item:nth-child(3) { background: linear-gradient(135deg,#1a0030,#4a1040,#1a0030); }
+    .slide-item:nth-child(4) { background: linear-gradient(135deg,#07000f,#35002a,#07000f); }
+    .slide-item:nth-child(5) { background: linear-gradient(135deg,#1a0030,#2a1050,#1a0030); }
+    .slide-item:nth-child(6) { background: linear-gradient(135deg,#07000f,#3a0838,#07000f); }
+    .slide-item:nth-child(7) { background: linear-gradient(135deg,#1a0030,#4a0845,#1a0030); }
+    .slide-item:nth-child(8) { background: linear-gradient(135deg,#07000f,#2d0630,#07000f); }
+    .slide-item:nth-child(9) { background: linear-gradient(135deg,#1a0030,#3a0630,#1a0030); }
+
+    /* 照片中央装饰（无图时显示）*/
+    .slide-deco {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,107,157,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      opacity: 0.3;
+    }
+
+    /* 顶部时间戳样式 */
+    .top-tag {
+      position: fixed;
+      top: calc(18px + var(--sat));
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      letter-spacing: 4px;
+      color: rgba(255,255,255,0.25);
+      z-index: 10;
+      white-space: nowrap;
+    }
+
+    /* 音频播放按钮：正在播放时显示暂停图标 */
+    #play-btn.playing .icon-play  { display: none; }
+    #play-btn.playing .icon-pause { display: block; }
+    .icon-pause { display: none; }
+  </style>
+</head>
+<body>
+
+  <!-- 过渡遮罩 -->
+  <div id="transition-overlay"></div>
+
+  <!-- ① 照片轮播层 -->
+  <div class="slideshow" id="slideshow">
+    <!-- 9 张照片位（src 留空，替换为实际路径即可）-->
+    <div class="slide-item" data-idx="0"
+         style="background-image:url('assets/images/photo9.jpg');">
+      <div class="slide-deco">🌸</div>
+    </div>
+    <div class="slide-item" data-idx="1"
+         style="background-image:url('assets/images/photo2.jpg');">
+      <div class="slide-deco">💫</div>
+    </div>
+    <div class="slide-item" data-idx="2"
+         style="background-image:url('assets/images/photo3.jpg');">
+      <div class="slide-deco">🌙</div>
+    </div>
+    <div class="slide-item" data-idx="3"
+         style="background-image:url('assets/images/photo4.jpg');">
+      <div class="slide-deco">✨</div>
+    </div>
+    <div class="slide-item" data-idx="4"
+         style="background-image:url('assets/images/photo5.jpg');">
+      <div class="slide-deco">🌟</div>
+    </div>
+    <div class="slide-item" data-idx="5"
+         style="background-image:url('assets/images/photo6.jpg');">
+      <div class="slide-deco">💕</div>
+    </div>
+    <div class="slide-item" data-idx="6"
+         style="background-image:url('assets/images/photo7.jpg');">
+      <div class="slide-deco">🌸</div>
+    </div>
+    <div class="slide-item" data-idx="7"
+         style="background-image:url('assets/images/photo8.jpg');">
+      <div class="slide-deco">💖</div>
+    </div>
+    <div class="slide-item" data-idx="8"
+         style="background-image:url('assets/images/photo9.jpg');">
+      <div class="slide-deco">🌹</div>
+    </div>
+  </div>
+
+  <!-- ② 遮罩层（渐变增强氛围）-->
+  <div class="slide-mask"></div>
+
+  <!-- ③ 浮动词语层 -->
+  <div class="float-layer" id="float-layer"></div>
+
+  <!-- ④ 顶部时间戳 -->
+  <div class="top-tag">MEMORY · ARCHIVE</div>
+
+  <!-- ⑤ 时间线文字（跟随照片切换）-->
+  <div class="timeline-caption" id="timeline-caption"></div>
+
+  <!-- ⑥ 音频播放器（居中）-->
+  <div class="audio-player-zone" id="audio-zone">
+    <div id="play-btn" class="play-circle">
+      <!-- 播放图标 -->
+      <svg class="icon-play" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 5v14l11-7z"/>
+      </svg>
+      <!-- 暂停图标 -->
+      <svg class="icon-pause" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
+           style="fill:#ff6b9d;width:26px;height:26px;">
+        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+      </svg>
+    </div>
+    <div class="audio-hint" id="audio-hint">点击播放录音</div>
+  </div>
+
+  <!-- ⑦ 字幕显示区 -->
+  <div class="subtitle-zone">
+    <div class="subtitle-inner" id="subtitle-text"></div>
+  </div>
+
+  <!-- ⑧ 反转遮罩 -->
+  <div class="reversal-mask" id="reversal-mask">
+    <div class="reversal-line" id="rev-line-1">
+      如果有一天，这一切都结束了呢？
+    </div>
+    <div class="reversal-line" id="rev-line-2">
+      你会不会……忘了我？
+    </div>
+  </div>
+
+  <script src="js/page-transition.js"></script>
+  <script src="js/particles.js"></script>
+  <script src="js/typewriter.js"></script>
+  <script src="js/audio-controller.js"></script>
+  <script>
+    /* ================================================
+       数据配置
+       ================================================ */
+
+    /* 每张照片对应的时间线文案 */
+    const CAPTIONS = [
+      '那天我其实紧张到不敢看你',
+      '你笑的时候我真的愣住了',
+      '从那天开始我就知道完了',
+      '也许这就是一见钟情',
+      '后来我才知道 那是心动',
+      '因为你 我变成了更好的人',
+      '和你在一起的每一天都很珍贵',
+      '我想把所有好的都给你',
+      '谢谢你出现在我的世界里',
+    ];
+
+    /* 字幕时间轴（time 单位：秒，对应音频 currentTime）*/
+    const SUBTITLES = [
+      { time:  0, text: '遇见你，是我最幸运的事' },
+      { time:  4, text: '从那一刻开始...' },
+      { time:  8, text: '我就知道，我完了' },
+      { time: 12, text: '因为你笑起来太好看了' },
+      { time: 17, text: '我想一直这样，陪着你' },
+      { time: 22, text: '不管是今天，还是以后' },
+      { time: 26, text: '我都想在你身边' },
+    ];
+
+    /* 浮动词语 */
+    const FLOAT_WORDS = [
+      '遇见你','很幸运','心动','想念','在一起','喜欢你',
+      '那一天','我愿意','一辈子','爱','好喜欢','不舍得',
+      '真的很好','谢谢你','陪着我','刚刚好','一直走',
+    ];
+
+    /* ================================================
+       照片轮播逻辑
+       ================================================ */
+    const slides      = document.querySelectorAll('.slide-item');
+    const captionEl   = document.getElementById('timeline-caption');
+    let   slideIdx    = 0;
+    let   slideTimer  = null;
+    let   slidePaused = false;
+
+    function showSlide(idx) {
+      /* 切换当前活动照片 */
+      slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+
+      /* 更新时间线文案（淡出→换字→淡入）*/
+      captionEl.style.opacity = '0';
+      setTimeout(() => {
+        captionEl.textContent  = CAPTIONS[idx] || '';
+        captionEl.style.opacity = '1';
+      }, 500);
+    }
+
+    function startSlideshow(interval = 6000) {
+      showSlide(slideIdx);
+      slideTimer = setInterval(() => {
+        if (slidePaused) return;
+        slideIdx = (slideIdx + 1) % slides.length;
+        showSlide(slideIdx);
+      }, interval);
+    }
+
+    /* ================================================
+       浮动词语生成
+       ================================================ */
+    function createFloatWords() {
+      const layer = document.getElementById('float-layer');
+      FLOAT_WORDS.forEach((word, i) => {
+        const el = document.createElement('span');
+        el.className   = 'float-word';
+        el.textContent = word;
+        /* 随机水平位置 */
+        el.style.left = `${Math.random() * 85 + 5}%`;
+        /* 随机漂移参数 */
+        el.style.setProperty('--dur',     `${Math.random() * 10 + 10}s`);
+        el.style.setProperty('--delay',   `${Math.random() * 12}s`);
+        el.style.setProperty('--drift-x', `${(Math.random() - 0.5) * 60}px`);
+        el.style.setProperty('--drift-r', `${(Math.random() - 0.5) * 15}deg`);
+        layer.appendChild(el);
+      });
+    }
+
+    /* ================================================
+       字幕显示（打字机效果 + 发光）
+       ================================================ */
+    const subtitleEl = document.getElementById('subtitle-text');
+    let   subTw      = null;
+
+    function showSubtitle(text) {
+      subtitleEl.classList.remove('visible');
+
+      setTimeout(() => {
+        subtitleEl.textContent = '';
+        subtitleEl.classList.add('visible');
+        /* 用打字机逐字显示 */
+        subTw = new Typewriter(subtitleEl, { speed: 80, cursor: false });
+        subTw.type(text);
+      }, 300);
+    }
+
+    /* ================================================
+       音频控制器
+       ================================================ */
+    let audioReady = false; // 标记是否已触发过播放
+
+    const ac = new AudioController({
+      src:       'assets/audio/voice.mp3',
+      subtitles: SUBTITLES,
+
+      /* 字幕同步回调 */
+      onSubtitle: (text) => {
+        showSubtitle(text);
+      },
+
+      /* 音频播放结束 → 触发反转 */
+      onEnd: () => {
+        document.getElementById('play-btn').classList.remove('playing');
+        setTimeout(triggerReversal, 800);
+      },
+
+      /* 音频加载失败降级：自动模拟字幕 + 定时跳转 */
+      onError: () => {
+        console.log('[memory] 无音频，降级为自动模式');
+        /* 若用户已点击播放则模拟字幕流，否则等待点击 */
+        if (audioReady) startFallback();
+      },
+    });
+
+    /* 降级：无音频时模拟字幕 */
+    function startFallback() {
+      ac.simulateSubtitles(4200, () => {
+        setTimeout(triggerReversal, 1000);
+      });
+    }
+
+    /* ================================================
+       播放按钮事件
+       ================================================ */
+    const playBtn  = document.getElementById('play-btn');
+    const audioHint = document.getElementById('audio-hint');
+
+    playBtn.addEventListener('click', () => {
+      vibrate(25);
+
+      if (!audioReady) {
+        /* 首次点击 */
+        audioReady = true;
+        audioHint.style.opacity = '0';
+
+        /* 尝试播放音频 */
+        const playPromise = ac.play();
+
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            playBtn.classList.add('playing');
+          }).catch(() => {
+            /* 播放被拦截 → 降级 */
+            startFallback();
+          });
+        }
+
+        /* 若音频已加载失败，直接走降级 */
+        if (!ac._hasAudio && ac.audio.readyState === 0) {
+          setTimeout(() => {
+            if (!ac.isPlaying()) startFallback();
+          }, 500);
+        }
+
+      } else {
+        /* 非首次点击：切换播放/暂停 */
+        ac.toggle();
+        playBtn.classList.toggle('playing', ac.isPlaying());
+      }
+    });
+
+    /* ================================================
+       反转动画（剧情高潮转折点）
+       ================================================ */
+    function triggerReversal() {
+      /* 停止照片轮播 */
+      slidePaused = true;
+      clearInterval(slideTimer);
+
+      /* 隐藏播放器和字幕 */
+      document.getElementById('audio-zone').style.opacity  = '0';
+      document.getElementById('subtitle-text').style.opacity = '0';
+      captionEl.style.opacity = '0';
+
+      const mask   = document.getElementById('reversal-mask');
+      const line1  = document.getElementById('rev-line-1');
+      const line2  = document.getElementById('rev-line-2');
+
+      /* 页面变暗 */
+      mask.classList.add('active');
+
+      /* 第一句话 */
+      setTimeout(() => line1.classList.add('show'), 800);
+
+      /* 停顿 2 秒后显示第二句 */
+      setTimeout(() => line2.classList.add('show'), 3200);
+
+      /* 再停顿后跳转结局 */
+      setTimeout(() => navigateTo('ending.html'), 5800);
+    }
+
+    /* ================================================
+       初始化
+       ================================================ */
+    document.addEventListener('DOMContentLoaded', () => {
+      createFloatWords();   // 生成浮动词语
+      startSlideshow(7000); // 每 7 秒切换一张照片
+    });
+  </script>
+</body>
+</html>

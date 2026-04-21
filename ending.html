@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0,
+                 viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#07000f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <base href="/LoveCQL/">
+  <title>结局 · 地球Online</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <style>
+    /* 结局各阶段内容 */
+    .stage-content {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 480px;
+      padding: 24px;
+      text-align: center;
+      min-height: 100%;
+    }
+
+    /* 分隔线 */
+    .stage-divider {
+      width: 56px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,107,157,0.45), transparent);
+      margin: 18px auto;
+      opacity: 0;
+      transition: opacity 1.2s ease;
+    }
+    .stage-divider.show { opacity: 1; }
+
+    /* 系统解锁徽章 */
+    .unlock-badge {
+      display: inline-block;
+      padding: 5px 16px;
+      border: 1px solid rgba(255,215,0,0.35);
+      border-radius: 50px;
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: rgba(255,215,0,0.7);
+      margin-bottom: 20px;
+      opacity: 0;
+      transition: opacity 1s ease;
+      -webkit-backdrop-filter: blur(8px);
+      backdrop-filter: blur(8px);
+    }
+    .unlock-badge.show { opacity: 1; }
+
+    /* 誓言小字 */
+    #ending-vow {
+      font-size: clamp(12px, 3.2vw, 14px);
+      color: rgba(255,245,249,0.42);
+      line-height: 2.2;
+      max-width: 286px;
+      margin: 0 auto 26px;
+      letter-spacing: 1px;
+      opacity: 0;
+      transition: opacity 1.3s ease;
+    }
+    #ending-vow.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <!-- 过渡遮罩 -->
+  <div id="transition-overlay"></div>
+
+  <!-- ① 爱心粒子 Canvas -->
+  <canvas id="heart-canvas" class="bg-canvas"></canvas>
+
+  <!-- ② 结局舞台（分阶段显示）-->
+  <div class="page-wrap">
+    <div class="stage-content" id="stage-content">
+
+      <!-- 阶段 2：解锁按钮 -->
+      <button class="unlock-btn" id="unlock-btn">
+        解锁主线剧情
+      </button>
+
+      <!-- 阶段 3：恭喜文字（打字机）-->
+      <div class="ending-congrats" id="congrats-text"></div>
+
+      <!-- 阶段分隔 -->
+      <div class="stage-divider" id="div-1"></div>
+
+      <!-- 誓言副标题 -->
+      <p id="ending-vow">
+        除非极端不可控因素<br>
+        否则生生世世彼此相爱<br>
+        同舟共济，相濡以沫
+      </p>
+
+      <!-- 阶段 4：名字 + 心跳 -->
+      <div class="ending-names" id="names-row" style="opacity:0;transition:opacity 1.3s ease;">
+        <span id="name-left">赖方瑜</span>
+        <span class="heart-icon">♥</span>
+        <span id="name-right">陈清莲</span>
+      </div>
+
+      <!-- 阶段分隔 -->
+      <div class="stage-divider" id="div-2"></div>
+
+      <!-- 阶段 5：游戏开始 -->
+      <div class="ending-game-start" id="game-start">游戏开始</div>
+      <div class="ending-welcome"   id="welcome-text">地球Online 欢迎你</div>
+
+    </div>
+  </div>
+
+  <!-- ③ 彩蛋入口按钮（右下角，阶段 5 后显示）-->
+  <div class="easter-trigger" id="easter-btn" onclick="gotoEaster()">
+    <span>✦</span>
+  </div>
+
+  <script src="js/page-transition.js"></script>
+  <script src="js/particles.js"></script>
+  <script src="js/typewriter.js"></script>
+  <script>
+    /* ================================================
+       爱心粒子初始化
+       ================================================ */
+    const hearts = new HeartParticles(document.getElementById('heart-canvas'));
+    hearts.start();
+
+    /* ================================================
+       阶段控制器
+       阶段 1: 粒子动画（3 秒）
+       阶段 2: 解锁按钮出现
+       阶段 3: 按钮点击 → 打字机恭喜文字
+       阶段 4: 名字 + 心跳
+       阶段 5: 游戏开始文字 + 彩蛋按钮
+       ================================================ */
+
+    const unlockBtn   = document.getElementById('unlock-btn');
+    const congratsEl  = document.getElementById('congrats-text');
+    const div1        = document.getElementById('div-1');
+    const vowEl       = document.getElementById('ending-vow');
+    const namesRow    = document.getElementById('names-row');
+    const div2        = document.getElementById('div-2');
+    const gameStart   = document.getElementById('game-start');
+    const welcomeText = document.getElementById('welcome-text');
+    const easterBtn   = document.getElementById('easter-btn');
+    const badge       = document.createElement('div');
+
+    /* 初始隐藏所有阶段元素 */
+    [congratsEl, div1, vowEl, namesRow, div2, gameStart, welcomeText]
+      .forEach(el => { el.style.display = 'none'; });
+
+    /* 阶段 1 → 阶段 2：3 秒后显示解锁按钮 */
+    setTimeout(() => {
+      unlockBtn.classList.add('show');
+    }, 3000);
+
+    /* 阶段 2 → 阶段 3：点击解锁按钮 */
+    unlockBtn.addEventListener('click', () => {
+      vibrate(40);
+      unlockBtn.style.transition = 'opacity 0.6s ease, transform 0.15s ease';
+      unlockBtn.classList.remove('show');
+
+      setTimeout(() => {
+        unlockBtn.style.display = 'none';
+        runPhase3();
+      }, 650);
+    });
+
+    /* 阶段 3：打字机 "恭喜玩家开启主线剧情" */
+    function runPhase3() {
+      congratsEl.style.display = '';
+      const tw = new Typewriter(congratsEl, { speed: 90, cursor: false });
+      tw.type('恭喜玩家开启主线剧情', () => {
+        setTimeout(runPhase4, 800);
+      });
+    }
+
+    /* 阶段 4：誓言 + 名字心跳 */
+    function runPhase4() {
+      /* 显示分隔线 */
+      div1.style.display = '';
+      requestAnimationFrame(() => div1.classList.add('show'));
+
+      /* 显示誓言 */
+      vowEl.style.display = '';
+      requestAnimationFrame(() => vowEl.classList.add('show'));
+
+      setTimeout(() => {
+        namesRow.style.display = '';
+        requestAnimationFrame(() => {
+          namesRow.style.opacity = '1';
+        });
+        setTimeout(runPhase5, 1600);
+      }, 1200);
+    }
+
+    /* 阶段 5：游戏开始 + 欢迎 + 彩蛋按钮 */
+    function runPhase5() {
+      div2.style.display = '';
+      requestAnimationFrame(() => div2.classList.add('show'));
+
+      setTimeout(() => {
+        gameStart.style.display = '';
+        requestAnimationFrame(() => gameStart.classList.add('show'));
+      }, 600);
+
+      setTimeout(() => {
+        welcomeText.style.display = '';
+        requestAnimationFrame(() => welcomeText.classList.add('show'));
+      }, 1400);
+
+      /* 彩蛋按钮延迟显示 */
+      setTimeout(() => {
+        easterBtn.classList.add('show');
+      }, 3000);
+    }
+
+    /* ================================================
+       跳转彩蛋
+       ================================================ */
+    function gotoEaster() {
+      vibrate([15, 30, 15]);
+      navigateTo('hidden.html');
+    }
+  </script>
+</body>
+</html>

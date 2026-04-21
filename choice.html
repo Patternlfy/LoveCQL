@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0,
+                 viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#07000f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <base href="/LoveCQL/">
+  <title>命运选择 · 地球Online</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <style>
+    /* ---- 选项按钮特殊样式 ---- */
+    .choice-btn {
+      display: block;
+      width: 100%;
+      max-width: 280px;
+      margin: 0 auto 14px;
+      padding: 15px 20px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,107,157,0.3);
+      background: rgba(255,107,157,0.06);
+      color: var(--text-white);
+      font-family: inherit;
+      font-size: clamp(15px, 4.2vw, 17px);
+      letter-spacing: 2px;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.25s ease, border-color 0.25s ease,
+                  transform 0.15s ease, box-shadow 0.25s ease;
+      -webkit-appearance: none;
+      touch-action: manipulation;
+      position: relative;
+      overflow: hidden;
+    }
+    .choice-btn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: rgba(255,107,157,0);
+      transition: background 0.2s ease;
+    }
+    .choice-btn:active {
+      transform: scale(0.96);
+    }
+    .choice-btn:active::after {
+      background: rgba(255,107,157,0.15);
+    }
+    .choice-btn:hover {
+      border-color: rgba(255,107,157,0.65);
+      box-shadow: 0 0 18px rgba(255,107,157,0.18);
+    }
+
+    /* 已选中高亮 */
+    .choice-btn.selected {
+      border-color: var(--pink);
+      background: rgba(255,107,157,0.18);
+      box-shadow: 0 0 20px rgba(255,107,157,0.25);
+    }
+
+    /* 无效选项（普通人）*/
+    .choice-btn.invalid {
+      border-color: rgba(255,60,60,0.35);
+      background: rgba(255,60,60,0.06);
+      animation: shake 0.4s ease;
+    }
+
+    /* 问题切换容器 */
+    .q-stage {
+      position: relative;
+      z-index: 5;
+      width: 100%;
+      max-width: 480px;
+      padding: 24px 24px;
+      text-align: center;
+    }
+
+    /* 底部提示 */
+    .skip-hint {
+      position: fixed;
+      bottom: calc(22px + var(--sab));
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: rgba(255,255,255,0.18);
+      letter-spacing: 2px;
+      z-index: 5;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 过渡遮罩 -->
+  <div id="transition-overlay"></div>
+
+  <!-- 星空 Canvas -->
+  <canvas id="star-canvas" class="bg-canvas"></canvas>
+
+  <!-- 主内容 -->
+  <div class="page-wrap">
+    <div class="q-stage">
+
+      <!-- 进度点 -->
+      <div class="dot-progress" id="dot-progress" style="margin-bottom:32px;">
+        <div class="dot active" id="dot-0"></div>
+        <div class="dot"       id="dot-1"></div>
+        <div class="dot"       id="dot-2"></div>
+      </div>
+
+      <!-- 问题区域（单一切换）-->
+      <div class="question-wrap" id="q-wrap">
+
+        <!-- 问题编号 -->
+        <div class="q-num" id="q-num">Q1 / 3</div>
+
+        <!-- 问题文字 -->
+        <div class="q-text" id="q-text"></div>
+
+        <!-- 无效提示（Q2 普通人专用）-->
+        <div class="invalid-tip" id="invalid-tip">⚠ 选项无效，请重新选择</div>
+
+        <!-- 选项按钮容器 -->
+        <div id="choices-wrap"></div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 底部提示 -->
+  <div class="skip-hint">点击选择你的答案</div>
+
+  <script src="js/page-transition.js"></script>
+  <script src="js/particles.js"></script>
+  <script src="js/typewriter.js"></script>
+  <script>
+    /* ---- 星空初始化 ---- */
+    const starField = new StarField(document.getElementById('star-canvas'));
+    starField.start();
+
+    /* ---- 问题数据 ---- */
+    const QUESTIONS = [
+      {
+        num:     'Q1 / 3',
+        text:    '如果时间可以重来，你还会选择认识他吗？',
+        choices: [
+          { label: '会',      valid: true  },
+          { label: '当然会',  valid: true  },
+          { label: '必须会',  valid: true  },
+        ],
+      },
+      {
+        num:     'Q2 / 3',
+        text:    '你觉得他对你来说是什么？',
+        choices: [
+          { label: '普通人',   valid: false, msg: '选项无效' },
+          { label: '很重要',   valid: true  },
+          { label: '无法替代', valid: true  },
+        ],
+      },
+      {
+        num:     'Q3 / 3',
+        text:    '如果有一天他不在了呢？',
+        choices: [
+          { label: '……',           valid: true },
+          { label: '我不想想这个',  valid: true },
+          { label: '不可能',        valid: true },
+        ],
+      },
+    ];
+
+    let currentQ  = 0;
+    let answering = false;  // 防止答题动画中重复点击
+
+    /* ---- 渲染当前问题 ---- */
+    function renderQuestion(idx, enterAnim = true) {
+      const q       = QUESTIONS[idx];
+      const qWrap   = document.getElementById('q-wrap');
+      const qNum    = document.getElementById('q-num');
+      const qText   = document.getElementById('q-text');
+      const choWrap = document.getElementById('choices-wrap');
+      const invTip  = document.getElementById('invalid-tip');
+
+      /* 隐藏无效提示 */
+      invTip.classList.remove('show');
+
+      /* 切换动画：先隐藏，再更新内容，再显示 */
+      if (enterAnim) {
+        qWrap.classList.remove('show');
+      }
+
+      setTimeout(() => {
+        /* 更新问题编号 */
+        qNum.textContent = q.num;
+
+        /* 清空并用打字机渲染问题文字 */
+        qText.textContent = '';
+        const tw = new Typewriter(qText, { speed: 55, cursor: false });
+        tw.type(q.text);
+
+        /* 生成选项按钮 */
+        choWrap.innerHTML = '';
+        q.choices.forEach((choice, ci) => {
+          const btn = document.createElement('button');
+          btn.className   = 'choice-btn';
+          btn.textContent = choice.label;
+          btn.dataset.idx  = ci;
+
+          btn.addEventListener('click', () => onChoiceClick(idx, ci, btn, choice));
+          choWrap.appendChild(btn);
+        });
+
+        /* 更新进度点 */
+        document.querySelectorAll('.dot').forEach((dot, di) => {
+          dot.classList.toggle('active', di === idx);
+        });
+
+        /* 显示 */
+        requestAnimationFrame(() => {
+          qWrap.classList.add('show');
+        });
+      }, enterAnim ? 350 : 0);
+    }
+
+    /* ---- 选项点击处理 ---- */
+    function onChoiceClick(qIdx, choIdx, btnEl, choice) {
+      if (answering) return;
+      vibrate(25);
+
+      /* 无效选项处理（Q2 - 普通人）*/
+      if (!choice.valid) {
+        btnEl.classList.add('invalid');
+        document.getElementById('invalid-tip').classList.add('show');
+        /* 震动提示：两次短振 */
+        vibrate([30, 60, 30]);
+        setTimeout(() => btnEl.classList.remove('invalid'), 500);
+        return;
+      }
+
+      /* 有效选项：高亮 → 停顿 → 下一题 */
+      answering = true;
+      btnEl.classList.add('selected');
+
+      setTimeout(() => {
+        answering = false;
+        if (qIdx < QUESTIONS.length - 1) {
+          /* 进入下一问题 */
+          currentQ++;
+          renderQuestion(currentQ, true);
+        } else {
+          /* 最后一题答完 → 跳转第三幕 */
+          navigateTo('memory.html', 200);
+        }
+      }, 700);
+    }
+
+    /* ---- 初始渲染（页面加载后延迟启动）---- */
+    setTimeout(() => renderQuestion(0, false), 600);
+  </script>
+</body>
+</html>

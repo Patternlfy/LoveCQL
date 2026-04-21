@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <!-- viewport-fit=cover 开启刘海屏安全区域 -->
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0,
+                 viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#07000f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <base href="/LoveCQL/">
+  <title>地球Online</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <style>
+    /* ---- 第一幕：专属样式 ---- */
+    .s1-wrap {
+      position: relative;
+      z-index: 5;
+      width: 100%;
+      max-width: 480px;
+      padding: 32px 24px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* 对话框内部排版 */
+    .dialog-body p {
+      font-size: clamp(16px, 4.5vw, 20px);
+      line-height: 2.1;
+      color: rgba(255, 245, 249, 0.9);
+      letter-spacing: 1px;
+      min-height: 1.5em;
+    }
+
+    /* 按钮组淡入 */
+    #btn-group {
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+    #btn-group.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* 底部版本号 */
+    .ver-tag {
+      position: fixed;
+      bottom: calc(14px + var(--sab));
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      color: rgba(255,255,255,0.12);
+      letter-spacing: 3px;
+      z-index: 5;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ① 页面过渡遮罩 -->
+  <div id="transition-overlay"></div>
+
+  <!-- ② 星空 Canvas -->
+  <canvas id="star-canvas" class="bg-canvas"></canvas>
+
+  <!-- ③ 主内容 -->
+  <div class="page-wrap">
+    <div class="s1-wrap">
+
+      <!-- 顶部 LOGO 标签 -->
+      <div class="scene1-logo" style="animation:fade-up 1s ease 0.4s both;">
+        EARTH · ONLINE
+      </div>
+
+      <!-- 主标题 -->
+      <h1 class="title-lg" style="margin-bottom:28px;animation:fade-up 1s ease 0.7s both;">
+       </h1>
+
+      <!-- 系统对话框 -->
+      <div class="dialog-card" style="animation:fade-up 1s ease 1.1s both;">
+        <div class="sys-label">SYSTEM NOTICE</div>
+        <div class="dialog-body">
+          <p id="line-1"></p>
+          <p id="line-2"></p>
+          <p id="line-3"></p>
+        </div>
+      </div>
+
+      <!-- 操作按钮 -->
+      <div class="btn-group" id="btn-group">
+        <button class="btn btn-main" id="btn-continue">继续</button>
+        <button class="btn btn-ghost" id="btn-exit">退出</button>
+      </div>
+
+      <!-- 进度点装饰 -->
+      <div class="dot-progress" style="margin-top:28px;">
+        <div class="dot active"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ④ 退出提示模态 -->
+  <div class="modal-overlay" id="exit-modal">
+    <div class="modal-card">
+      <p>⚠️ 该剧情为唯一存档</p>
+      <p>无法退出</p>
+      <div style="margin-top:20px;">
+        <button class="btn btn-main" id="btn-force" style="font-size:14px;padding:11px 26px;">
+          好吧……
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部版本号 -->
+  <div class="ver-tag">v1.0 · EARTH ONLINE</div>
+
+  <!-- ⑤ 脚本 -->
+  <script src="js/page-transition.js"></script>
+  <script src="js/particles.js"></script>
+  <script src="js/typewriter.js"></script>
+  <script>
+    /* ---- 初始化星空 ---- */
+    const starField = new StarField(document.getElementById('star-canvas'));
+    starField.start();
+
+    /* ---- 打字机队列 ---- */
+    const dialogLines = [
+      { id: 'line-1', text: '欢迎登录《地球Online》',       delay: 400 },
+      { id: 'line-2', text: '检测到你有一段未完成的恋爱剧情…',   delay: 350 },
+      { id: 'line-3', text: '是否继续？',                   delay: 200 },
+    ];
+
+    /* 启动打字机（第一条延迟 1.5s，与页面淡入动画错开）*/
+    let lineIdx = 0;
+    function typeNextLine() {
+      if (lineIdx >= dialogLines.length) {
+        /* 全部打完后显示按钮 */
+        document.getElementById('btn-group').classList.add('show');
+        return;
+      }
+      const { id, text, delay } = dialogLines[lineIdx++];
+      const el = document.getElementById(id);
+      const tw = new Typewriter(el, { speed: 70, cursor: lineIdx < dialogLines.length });
+      tw.type(text, () => setTimeout(typeNextLine, delay));
+    }
+
+    setTimeout(typeNextLine, 1600);
+
+    /* ---- 按钮事件 ---- */
+    document.getElementById('btn-continue').addEventListener('click', () => {
+      vibrate(30);
+      navigateTo('choice.html');
+    });
+
+    document.getElementById('btn-exit').addEventListener('click', () => {
+      vibrate([20, 60, 20]);
+      document.getElementById('exit-modal').classList.add('show');
+    });
+
+    /* 强制继续（退出弹窗内按钮）*/
+    document.getElementById('btn-force').addEventListener('click', () => {
+      vibrate(30);
+      document.getElementById('exit-modal').classList.remove('show');
+      /* 短暂停顿后跳转，让用户感受到"没办法"的无奈 */
+      setTimeout(() => navigateTo('choice.html'), 600);
+    });
+
+    /* 点击遮罩关闭弹窗 */
+    document.getElementById('exit-modal').addEventListener('click', function(e) {
+      if (e.target === this) this.classList.remove('show');
+    });
+  </script>
+</body>
+</html>
